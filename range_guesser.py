@@ -17,7 +17,10 @@ Private IPv4 addresses:
 192.168.0.0/16  |   192.168.0.0 – 192.168.255.255   |   2**(32-16) = 65 536
 """
 
+import sys
+import shlex
 import argparse
+from subprocess import run, PIPE
 from ipaddress import IPv4Network
 
 def usage():
@@ -25,6 +28,8 @@ def usage():
     parser = argparse.ArgumentParser(description='Hosts list generator to smartly identify subnets within your scope')
     parser.add_argument('-o', '--output', default='hosts.lst')
     parser.add_argument('-n', '--netmask', type=int, default=24)
+    parser.add_argument('--scan', help="Perform scanning after host list generation", action="store_true")
+    parser.add_argument('-c', '--command', help="Specify your nmap command - i.e. nmap -oA subnets_guess -iL hosts.lst --top-ports=10", default='nmap -sn -oA subnets_guess -iL hosts.lst')
     return parser.parse_args()
 
 def gen_list(filename='hosts.lst', sub=24):
@@ -45,6 +50,16 @@ def gen_list(filename='hosts.lst', sub=24):
     with open(filename, 'w') as fd_out:
         fd_out.write('\n'.join([str(host) for host in ip_list]))
 
+def scan(nmap_command):
+    """Nmap scanner launcher."""
+    res = run(shlex.split(nmap_command), stdout=PIPE, stderr=PIPE)
+    if not res.returncode:
+        sys.stdout.write(res.stdout.decode('utf-8'))
+    else:
+        sys.stdout.write(res.stderr.decode('utf-8'))
+
 if __name__ == '__main__':
     args = usage()
     gen_list(args.output, args.netmask)
+    if args.scan:
+        scan(args.command)
